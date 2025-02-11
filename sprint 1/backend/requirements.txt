@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+opencv-python
+numpy
+ultralytics
+
+# Optional for GPU acceleration (ensure CUDA version matches your setup)
+torch
+torchvision
+torchaudio
