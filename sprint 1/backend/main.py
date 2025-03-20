@@ -4,39 +4,31 @@ from ultralytics import YOLO
 import cv2
 import numpy as np
 import base64
-import logging
-import asyncio
 import os
 import sys
 import time
+import asyncio
+
+# Import shared configuration
+from config import logger, time_on_screen, FRAME_INTERVAL, MODEL_PATH
+
+# Import telemetry manager
+from telemetry import telemetry_manager
+
+# Import the CameraManager class (not the instance)
+from camera_feed import CameraManager
 
 app = FastAPI()
 
-# Configure logging
-logging.basicConfig(
-    level=logging.WARNING,  # Reduced logging level for performance
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("app.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
-
 # Load the YOLOv8 model
-model_path = "trained_yolov8_model.pt"  # Ensure the path is correct
-if not os.path.isfile(model_path):
-    logger.error(f"YOLO model file not found: {model_path}")
+if not os.path.isfile(MODEL_PATH):
+    logger.error(f"YOLO model file not found: {MODEL_PATH}")
     sys.exit(1)
 
-model = YOLO(model_path)
+model = YOLO(MODEL_PATH)
 
-# Initialize a dictionary to track time on screen per class
-time_on_screen = {}
-
-# Define the target frame rate
-TARGET_FPS = 30
-FRAME_INTERVAL = 1 / TARGET_FPS  # Time per frame in seconds
+# Create the camera_manager instance with the model
+camera_manager = CameraManager(model=model)
 
 @app.get("/")
 async def get():
@@ -128,6 +120,41 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.error(f"Unexpected error: {e}")
         await websocket.close()
 
+@app.websocket("/telemetry")
+async def telemetry_endpoint(websocket: WebSocket):
+    """Endpoint for system telemetry data"""
+    try:
+        await telemetry_manager.connect(websocket)
+        while True:
+            # Keep connection open, the telemetry_manager handles data sending
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await telemetry_manager.disconnect(websocket)
+        logger.info("Telemetry client disconnected")
+    except Exception as e:
+        await telemetry_manager.disconnect(websocket)
+        logger.error(f"Telemetry error: {e}")
+
+@app.websocket("/camera_feed")
+async def camera_feed_endpoint(websocket: WebSocket):
+    """Endpoint for camera feed from Raspberry Pi"""
+    try:
+        await camera_manager.connect(websocket)  # <- This is where connection happens
+        while True:
+            # Keep connection open, the camera_manager handles frame sending
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await camera_manager.disconnect(websocket)
+        logger.info("Camera feed client disconnected")
+    except Exception as e:
+        await camera_manager.disconnect(websocket)
+        logger.error(f"Camera feed error: {e}")
+
+# Clean up hardware on shutdown
+@app.on_event("shutdown")
+async def shutdown_event():
+    pass
+
 if __name__ == "__main__":
     import uvicorn
 
@@ -135,7 +162,7 @@ if __name__ == "__main__":
         uvicorn.run(
             "main:app",
             host="0.0.0.0",
-            port=49078,
+            port=49078,  # This port number was chosen by the developer
             log_level="warning",
             reload=True,
         )

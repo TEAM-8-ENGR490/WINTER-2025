@@ -1,13 +1,18 @@
-// Import necessary libraries
-import React from "react";
-import LandingPage from "./pages/LandingPage";
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
+import TelemetryDashboard from './pages/TelemetryDashboard';
 
-const App = () => {
+function App() {
   return (
-    <div>
-      <LandingPage />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/telemetry" element={<TelemetryDashboard />} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </BrowserRouter>
   );
-};
+}
 
 export default App;

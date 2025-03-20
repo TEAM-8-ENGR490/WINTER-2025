@@ -1,8 +1,15 @@
+# Core dependencies (work on all platforms)
 fastapi
 uvicorn[standard]
 opencv-python
 numpy
 ultralytics
+psutil
+
+# Raspberry Pi specific dependencies (OPTIONAL - install only on Pi)
+# picamera
+# smbus
+# RPi.GPIO
 
 # Optional for GPU acceleration (ensure CUDA version matches your setup)
 torch

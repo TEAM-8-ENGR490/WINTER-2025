@@ -32,8 +32,10 @@ import {
   faPercent,
   faMapMarkerAlt,
   faClipboardList,
+  faMicrochip,
 } from "@fortawesome/free-solid-svg-icons";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 
 // -- Import the new components we created --
 import Header from "../components/Header";
@@ -57,7 +59,8 @@ library.add(
   faBoxOpen,
   faPercent,
   faMapMarkerAlt,
-  faClipboardList
+  faClipboardList,
+  faMicrochip
 );
 
 // Register Chart.js modules
@@ -86,9 +89,6 @@ const LandingPage = () => {
 
   // Pause/Resume video feed
   const [isPaused, setIsPaused] = useState(false);
-
-  // Ref to hidden <video> element
-  const videoRef = useRef(null);
 
   // ------------------------------------------------
   // Load persisted data from localStorage on mount
@@ -122,54 +122,37 @@ const LandingPage = () => {
   }, [itemTypeTimes]);
 
   // ------------------------------------------------
-  // WebSocket & Webcam Access
-  // Brute force approach: set up once, send frames every 100ms
+  // WebSocket Connection - Now only receiving processed frames from Pi
   // ------------------------------------------------
   useEffect(() => {
-    // 1) Open the WebSocket connection
-    const ws = new WebSocket("ws://127.0.0.1:49078/ws");
-
-    // 2) Request webcam
-    navigator.mediaDevices
-      .getUserMedia({ video: true })
-      .then((stream) => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
-      })
-      .catch((error) => console.error("Error accessing webcam:", error));
-
-    // 3) Send frames to server (every 100ms) unless paused
-    const sendFrame = () => {
-      if (!videoRef.current || isPaused) return;
-      if (ws.readyState !== WebSocket.OPEN) return;
-
-      const canvas = document.createElement("canvas");
-      canvas.width = 640;
-      canvas.height = 480;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-
-      const imageData = canvas.toDataURL("image/jpeg");
-      ws.send(imageData);
+    const PI_ADDRESS = import.meta.env.VITE_PI_ADDRESS || "100.73.143.76";
+    const ws = new WebSocket(`ws://${PI_ADDRESS}:49078/camera_feed`);
+    
+    ws.onopen = () => {
+      console.log("WebSocket connection established successfully");
+    };
+    
+    ws.onerror = (error) => {
+      console.error("WebSocket connection error:", error);
+      alert("Failed to connect to the backend server. Please make sure it's running.");
     };
 
-    const intervalId = setInterval(sendFrame, 100);
+    // We no longer need to access the local webcam or send frames
+    // The Raspberry Pi will send us camera frames directly
 
-    // 4) On receiving data from server
+    // On receiving data from server
     ws.onmessage = (event) => {
       if (isPaused) return; // Ignore if paused
       try {
         const data = JSON.parse(event.data);
-
+        
         // a) Annotated image
         setImageSrc(data.image);
-
+        
         // b) Current detections
         setDetections(data.detections);
-
-        // c) Detection history (append new point)
+        
+        // c) Detection history
         setDetectionHistory((prev) => {
           const updated = [
             ...prev,
@@ -178,7 +161,7 @@ const LandingPage = () => {
           localStorage.setItem("detectionHistory", JSON.stringify(updated));
           return updated;
         });
-
+        
         // d) Item type times
         setItemTypeTimes((prev) => {
           const updated = { ...prev };
@@ -193,16 +176,15 @@ const LandingPage = () => {
       }
     };
 
-    // 5) Handle close/error
+    // Handle close/error
     ws.onclose = () => {
       console.log("WebSocket connection closed");
-      clearInterval(intervalId);
     };
+    
     ws.onerror = (error) => console.error("WebSocket error:", error);
 
-    // 6) Cleanup on unmount
+    // Cleanup on unmount
     return () => {
-      clearInterval(intervalId);
       ws.close();
     };
   }, [isPaused]); 
@@ -210,9 +192,8 @@ const LandingPage = () => {
   // (so it can stop sending frames, or resume the interval).
 
   // ------------------------------------------------
-  // Chart Data
+  // Chart Data--------------------------------------
   // ------------------------------------------------
-
   // A) Line Chart: Average Detections
   const lineChartData = {
     labels: detectionHistory.map((entry) =>
@@ -234,7 +215,6 @@ const LandingPage = () => {
       },
     ],
   };
-
   // B) Doughnut Chart: Time on Screen per Item Type
   const doughnutChartData = {
     labels: Object.keys(itemTypeTimes),
@@ -264,9 +244,8 @@ const LandingPage = () => {
       },
     ],
   };
-
   // ------------------------------------------------
-  // Handlers / Helpers
+  // Handlers / Helpers------------------------------
   // ------------------------------------------------
   const handleRefresh = () => {
     localStorage.removeItem("detectionHistory");
@@ -276,24 +255,21 @@ const LandingPage = () => {
     setDetections([]);
     setImageSrc(null);
   };
-
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = (seconds % 60).toFixed(2);
     return `${mins}m ${secs}s`;
   };
-
   // The top/first detection
   const currentTarget = detections.length > 0 ? detections[0] : null;
 
   // ------------------------------------------------
-  // Render
+  // Render------------------------------------------
   // ------------------------------------------------
   return (
     <div className="min-h-screen bg-green-50 p-2 sm:p-4 lg:p-6 flex flex-col items-center">
       {/* Dashboard Header */}
       <Header handleRefresh={handleRefresh} />
-
       {/* Subtitle with motion fade-in */}
       <motion.p
         initial={{ opacity: 0 }}
@@ -303,17 +279,42 @@ const LandingPage = () => {
       >
         Real-time YOLOv8-powered Detection and Classification
       </motion.p>
-
+      {/* Show a message if there's no connection */}
+      {!imageSrc && (
+        <div className="w-full max-w-6xl p-4 bg-yellow-100 text-yellow-800 rounded-lg mb-4">
+          <p className="font-bold">No data received from server</p>
+          <p>Make sure the backend server is running at port 49078 and try refreshing the page.</p>
+          <button 
+            onClick={handleRefresh} 
+            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
+      {/* Telemetry Dashboard Link */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="w-full max-w-6xl mb-4 flex justify-end"
+      >
+        <Link 
+          to="/telemetry" 
+          className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center"
+        >
+          <FontAwesomeIcon icon={faMicrochip} className="mr-2" />
+          System Health Dashboard
+        </Link>
+      </motion.div>
       {/* Main Content Grid */}
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
-        {/* Live Video Feed (left side on large screens, top on mobile) */}
-        <LiveVideoFeed
+        {/* Live Video Feed (now just receiving frames, not sending) */}
+        <LiveVideoFeed 
           imageSrc={imageSrc}
           isPaused={isPaused}
           togglePause={() => setIsPaused((prev) => !prev)}
-          videoRef={videoRef}
         />
-
         {/* Stats and Charts (right side on large, bottom on mobile) */}
         <StatsAndCharts
           detections={detections}
@@ -324,7 +325,6 @@ const LandingPage = () => {
           formatTime={formatTime}
         />
       </div>
-
       {/* Detections & Item Type Details */}
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4 mt-2 sm:mt-4">
         <DetectionDetails detections={detections} />
@@ -334,7 +334,6 @@ const LandingPage = () => {
           formatTime={formatTime}
         />
       </div>
-
       {/* Footer */}
       <DashboardFooter />
     </div>
