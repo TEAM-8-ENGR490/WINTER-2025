@@ -1,5 +1,8 @@
 # Python virtual environments
 sprint 1/GG/
+sprint 1\GG/
+**/GG/
+**/sprint 1/GG/
 
 # Common Python virtual environment patterns
 venv/
