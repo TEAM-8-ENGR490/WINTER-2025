@@ -3,6 +3,7 @@ sprint 1/GG/
 sprint 1\GG/
 **/GG/
 **/sprint 1/GG/
+**/node_modules/
 
 # Common Python virtual environment patterns
 venv/
