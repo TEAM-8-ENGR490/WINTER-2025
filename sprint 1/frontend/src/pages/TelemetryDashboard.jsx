@@ -11,6 +11,7 @@ import {
   faArrowLeft,
   faSpinner,
   faExclamationTriangle,
+  faHome,
 } from "@fortawesome/free-solid-svg-icons";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
@@ -32,7 +33,8 @@ library.add(
   faNetworkWired,
   faArrowLeft,
   faSpinner,
-  faExclamationTriangle
+  faExclamationTriangle,
+  faHome
 );
 
 const TelemetryDashboard = () => {
@@ -209,10 +211,17 @@ const TelemetryDashboard = () => {
     <div className="min-h-screen bg-gray-50 p-2 sm:p-4 lg:p-6 flex flex-col">
       {/* Header */}
       <div className="w-full max-w-6xl mx-auto flex justify-between items-center mb-4">
-        <Link to="/" className="text-blue-600 hover:text-blue-800 transition-colors">
-          <FontAwesomeIcon icon={faArrowLeft} className="mr-2" />
-          Back to Detection Dashboard
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/" className="text-green-600 hover:text-green-800 transition-colors bg-green-100 px-3 py-2 rounded-lg">
+            <FontAwesomeIcon icon={faHome} className="mr-2" />
+            Home
+          </Link>
+          <Link to="/detection" className="text-blue-600 hover:text-blue-800 transition-colors bg-blue-100 px-3 py-2 rounded-lg">
+            <FontAwesomeIcon icon={faArrowLeft} className="mr-2" />
+            Detection Dashboard
+          </Link>
+        </div>
+        
         <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
           Raspberry Pi 4 System Health
           {isSimulated && (
@@ -221,6 +230,7 @@ const TelemetryDashboard = () => {
             </span>
           )}
         </h1>
+        
         <div className="flex items-center">
           <span className={`inline-block w-3 h-3 rounded-full mr-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
           <span className="text-sm text-gray-600">

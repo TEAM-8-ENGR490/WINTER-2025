@@ -33,6 +33,7 @@ import {
   faMapMarkerAlt,
   faClipboardList,
   faMicrochip,
+  faArrowLeft,
 } from "@fortawesome/free-solid-svg-icons";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
@@ -60,7 +61,8 @@ library.add(
   faPercent,
   faMapMarkerAlt,
   faClipboardList,
-  faMicrochip
+  faMicrochip,
+  faArrowLeft
 );
 
 // Register Chart.js modules
@@ -292,13 +294,21 @@ const LandingPage = () => {
           </button>
         </div>
       )}
-      {/* Telemetry Dashboard Link */}
+      {/* Dashboard Links */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
-        className="w-full max-w-6xl mb-4 flex justify-end"
+        className="w-full max-w-6xl mb-4 flex justify-between"
       >
+        <Link 
+          to="/" 
+          className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center"
+        >
+          <FontAwesomeIcon icon={faArrowLeft} className="mr-2" />
+          Return to Home
+        </Link>
+        
         <Link 
           to="/telemetry" 
           className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center"
@@ -307,6 +317,7 @@ const LandingPage = () => {
           System Health Dashboard
         </Link>
       </motion.div>
+      
       {/* Main Content Grid */}
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-4">
         {/* Live Video Feed (now just receiving frames, not sending) */}
