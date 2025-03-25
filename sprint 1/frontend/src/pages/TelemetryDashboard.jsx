@@ -41,7 +41,7 @@ const TelemetryDashboard = () => {
   // State for telemetry data
   const [cpuData, setCpuData] = useState({ usage: 0, temperature: 0, frequency: 0 });
   const [memoryData, setMemoryData] = useState({ used: 0, total: 0, percentage: 0 });
-  const [networkData, setNetworkData] = useState({ status: "disconnected", latency: 0 });
+  const [networkData, setNetworkData] = useState({ status: "disconnected", type: "ethernet" });
   const [sensorStatus, setSensorStatus] = useState({
     camera: "online",
     lidar: "online",

@@ -31,7 +31,12 @@ import {
   faVolumeUp,
   faRuler,
   faThermometerHalf,
-  faBatteryThreeQuarters
+  faBatteryThreeQuarters,
+  faBug, // Add this for debug mode
+  faRotateLeft,
+  faRotateRight,
+  faExpand,
+  faCompress
 } from '@fortawesome/free-solid-svg-icons';
 
 import RemoteControl from './pages/RemoteControl';
@@ -69,7 +74,12 @@ library.add(
   faVolumeUp,
   faRuler,
   faThermometerHalf,
-  faBatteryThreeQuarters
+  faBatteryThreeQuarters,
+  faBug, // Add this for debug mode
+  faRotateLeft,
+  faRotateRight,
+  faExpand,
+  faCompress
 );
 
 function App() {

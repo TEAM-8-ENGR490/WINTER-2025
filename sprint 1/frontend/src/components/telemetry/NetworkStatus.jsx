@@ -3,16 +3,14 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faNetworkWired, 
   faWifi, 
-  faExclamationTriangle, 
-  faSignal
+  faExclamationTriangle
 } from '@fortawesome/free-solid-svg-icons';
 import { motion } from 'framer-motion';
 
 const NetworkStatus = ({ data }) => {
-  const { status, latency = 0, signalStrength = 75, type = 'wifi' } = data;
+  const { status, signalStrength = 75, type = 'wifi' } = data;
   
   // Format to 2 decimal places
-  const formattedLatency = parseFloat(latency).toFixed(2);
   const formattedSignalStrength = parseFloat(signalStrength).toFixed(2);
   
   // Function to determine network icon based on type
@@ -23,18 +21,9 @@ const NetworkStatus = ({ data }) => {
   // Function to determine status color
   const getStatusColor = () => {
     if (status.toLowerCase() === 'connected') {
-      if (latency > 300) return "text-yellow-500";
       return "text-green-500";
     }
     return "text-red-500";
-  };
-  
-  // Function to determine latency quality text
-  const getLatencyText = () => {
-    if (latency <= 50) return "Excellent";
-    if (latency <= 100) return "Good";
-    if (latency <= 300) return "Fair";
-    return "Poor";
   };
   
   // Function to get signal bars based on strength
@@ -93,31 +82,6 @@ const NetworkStatus = ({ data }) => {
             <p className="text-xs text-gray-500">{formattedSignalStrength}% Signal</p>
           </div>
         )}
-      </div>
-      
-      {/* Latency info */}
-      <div className="mt-3">
-        <div className="flex justify-between items-center mb-1">
-          <span className="text-sm text-gray-600">Latency</span>
-          <span className={`text-sm font-medium 
-            ${latency <= 100 ? 'text-green-500' : 
-              latency <= 300 ? 'text-yellow-500' : 'text-red-500'}`}>
-            {formattedLatency}ms ({getLatencyText()})
-          </span>
-        </div>
-        
-        <div className="w-full bg-gray-200 rounded-full h-1.5">
-          <motion.div 
-            className={`h-1.5 rounded-full 
-              ${latency <= 100 ? 'bg-green-500' : 
-                latency <= 300 ? 'bg-yellow-500' : 'bg-red-500'}`}
-            initial={{ width: '0%' }}
-            animate={{ 
-              width: `${Math.min(100, (latency / 500) * 100)}%`
-            }}
-            transition={{ duration: 0.5 }}
-          ></motion.div>
-        </div>
       </div>
       
       {/* IP info (example) */}

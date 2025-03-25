@@ -20,17 +20,19 @@ import {
   faStop,
   faCog,
   faLightbulb,
-  faMicrochip
+  faMicrochip,
+  faBug
 } from '@fortawesome/free-solid-svg-icons';
 import { Link } from 'react-router-dom';
 
 // Import custom components
 import ConnectionStatus from '../components/control/ConnectionStatus';
-import JoystickControl from '../components/control/JoystickControl';
+import DirectionalPad from '../components/control/DirectionalPad';
 import ModeSelector from '../components/control/ModeSelector';
 import SpeedControl from '../components/control/SpeedControl';
 import SensorReadouts from '../components/control/SensorReadouts';
 import ActionButtons from '../components/control/ActionButtons';
+import SlamMap from '../components/SlamMap'; // Add SLAM Map import
 
 const RemoteControl = () => {
   // Connection state
@@ -40,6 +42,9 @@ const RemoteControl = () => {
   const [imageSrc, setImageSrc] = useState(null);
   const wsRef = useRef(null);
   const controlWsRef = useRef(null);
+  
+  // Add debug mode state
+  const [debugMode, setDebugMode] = useState(false);
 
   // Control state
   const [mode, setMode] = useState('manual'); // 'manual', 'semi-auto', 'auto'
@@ -51,6 +56,13 @@ const RemoteControl = () => {
     battery: 100,
     temperature: 25
   });
+  
+  // Add debug log for test movements
+  const [debugLog, setDebugLog] = useState([]);
+
+  // Add detection tracking state like in LandingPage
+  const [detections, setDetections] = useState([]);
+  const [currentTarget, setCurrentTarget] = useState(null);
 
   // Function to connect to the Raspberry Pi
   const connectToRobot = () => {
@@ -124,6 +136,15 @@ const RemoteControl = () => {
       try {
         const data = JSON.parse(event.data);
         setImageSrc(data.image);
+        
+        // Also process detection data
+        if (data.detections) {
+          setDetections(data.detections);
+          
+          // Set current target (most prominent detection)
+          const topDetection = data.detections.length > 0 ? data.detections[0] : null;
+          setCurrentTarget(topDetection);
+        }
       } catch (err) {
         console.error("Error parsing camera message:", err);
       }
@@ -158,7 +179,7 @@ const RemoteControl = () => {
     }
   };
   
-  // Handle joystick input
+  // Handle joystick input - modified for debug mode
   const handleJoystickMove = (x, y) => {
     setDirection({ x, y });
     
@@ -182,21 +203,92 @@ const RemoteControl = () => {
       const distance = Math.min(1, Math.sqrt(x*x + y*y));
       const effectiveSpeed = Math.round(speed * distance);
       
-      sendControlCommand({
+      const command = {
         action: action,
         speed: effectiveSpeed
-      });
+      };
+      
+      // If in debug mode, add to debug log instead of sending
+      if (debugMode) {
+        const now = new Date();
+        setDebugLog(prev => [
+          {
+            time: now.toLocaleTimeString(),
+            command: command
+          },
+          ...prev.slice(0, 9) // Keep last 10 items only
+        ]);
+      } else if (isConnected) {
+        // Only send if connected (not in debug mode)
+        sendControlCommand(command);
+      }
     }
   };
   
-  // Handle joystick release
+  // Handle joystick release - modified for debug mode
   const handleJoystickRelease = () => {
     setDirection({ x: 0, y: 0 });
     
     if (mode === 'manual') {
-      sendControlCommand({
-        action: 'stop'
-      });
+      const stopCommand = { action: 'stop' };
+      
+      if (debugMode) {
+        const now = new Date();
+        setDebugLog(prev => [
+          {
+            time: now.toLocaleTimeString(),
+            command: stopCommand
+          },
+          ...prev.slice(0, 9)
+        ]);
+      } else if (isConnected) {
+        sendControlCommand(stopCommand);
+      }
+    }
+  };
+  
+  // Handle directional pad input
+  const handleDirectionalMove = (direction) => {
+    if (mode === 'manual') {
+      const command = {
+        action: direction,
+        speed: speed
+      };
+      
+      // If in debug mode, add to debug log instead of sending
+      if (debugMode) {
+        const now = new Date();
+        setDebugLog(prev => [
+          {
+            time: now.toLocaleTimeString(),
+            command: command
+          },
+          ...prev.slice(0, 9) // Keep last 10 items only
+        ]);
+      } else if (isConnected) {
+        // Only send if connected (not in debug mode)
+        sendControlCommand(command);
+      }
+    }
+  };
+  
+  // Handle directional pad release
+  const handleDirectionalStop = () => {
+    if (mode === 'manual') {
+      const stopCommand = { action: 'stop' };
+      
+      if (debugMode) {
+        const now = new Date();
+        setDebugLog(prev => [
+          {
+            time: now.toLocaleTimeString(),
+            command: stopCommand
+          },
+          ...prev.slice(0, 9)
+        ]);
+      } else if (isConnected) {
+        sendControlCommand(stopCommand);
+      }
     }
   };
   
@@ -225,6 +317,24 @@ const RemoteControl = () => {
     });
   };
   
+  // Toggle debug mode
+  const toggleDebugMode = () => {
+    const newMode = !debugMode;
+    setDebugMode(newMode);
+    
+    // If enabling debug mode, add an entry to the log
+    if (newMode) {
+      const now = new Date();
+      setDebugLog(prev => [
+        {
+          time: now.toLocaleTimeString(),
+          command: { action: 'debug_mode_enabled' }
+        },
+        ...prev
+      ]);
+    }
+  };
+
   // Clean up WebSocket connections when component unmounts
   useEffect(() => {
     return () => {
@@ -260,23 +370,63 @@ const RemoteControl = () => {
               <FontAwesomeIcon icon={faMicrochip} className="mr-2" />
               System Health
             </Link>
+            
+            {/* Debug Mode Toggle */}
+            <button 
+              onClick={toggleDebugMode}
+              className={`py-2 px-4 rounded-lg transition-colors flex items-center ${
+                debugMode 
+                  ? 'bg-yellow-500 hover:bg-yellow-600 text-white' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+            >
+              <FontAwesomeIcon icon={faBug} className="mr-2" />
+              Debug Mode {debugMode ? 'ON' : 'OFF'}
+            </button>
           </div>
         </motion.header>
         
-        {/* Connection Status Banner */}
-        <ConnectionStatus 
-          isConnected={isConnected} 
-          connecting={connecting} 
-          connectionError={connectionError}
-          onConnect={connectToRobot}
-          onDisconnect={disconnectFromRobot}
-        />
+        {/* Connection Status Banner - Hide in debug mode */}
+        {!debugMode && (
+          <ConnectionStatus 
+            isConnected={isConnected} 
+            connecting={connecting} 
+            connectionError={connectionError}
+            onConnect={connectToRobot}
+            onDisconnect={disconnectFromRobot}
+          />
+        )}
+        
+        {/* Debug Mode Banner */}
+        {debugMode && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-6 rounded-md shadow-sm"
+          >
+            <div className="flex items-center">
+              <FontAwesomeIcon icon={faBug} className="text-yellow-500 mr-3 text-xl" />
+              <div className="flex-1">
+                <p className="font-medium text-yellow-800">Debug Mode Active</p>
+                <p className="text-yellow-700 text-sm">
+                  Use joystick without connecting to robot. Commands will be logged but not sent.
+                </p>
+              </div>
+              <button
+                onClick={toggleDebugMode}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white text-sm py-1 px-3 rounded-md ml-4"
+              >
+                Disable
+              </button>
+            </div>
+          </motion.div>
+        )}
         
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Left Column - Camera and Controls */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Camera Feed */}
+            {/* Camera Feed - Updated to show detection info */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -285,13 +435,20 @@ const RemoteControl = () => {
             >
               <div className="p-4 bg-green-800 text-white flex justify-between items-center">
                 <h2 className="text-xl font-semibold">Live Camera Feed</h2>
-                <button
-                  onClick={() => setIsPaused(!isPaused)}
-                  disabled={!isConnected}
-                  className={`p-2 rounded-full ${isPaused ? 'bg-green-600' : 'bg-red-600'} ${!isConnected && 'opacity-50 cursor-not-allowed'}`}
-                >
-                  <FontAwesomeIcon icon={isPaused ? faPlay : faPause} />
-                </button>
+                <div className="flex items-center">
+                  {currentTarget && (
+                    <div className="mr-4 text-sm bg-green-700 px-2 py-1 rounded">
+                      <span className="font-medium">{currentTarget.class}:</span> {(currentTarget.confidence * 100).toFixed(1)}%
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setIsPaused(!isPaused)}
+                    disabled={!isConnected && !debugMode}
+                    className={`p-2 rounded-full ${isPaused ? 'bg-green-600' : 'bg-red-600'} ${!isConnected && !debugMode && 'opacity-50 cursor-not-allowed'}`}
+                  >
+                    <FontAwesomeIcon icon={isPaused ? faPlay : faPause} />
+                  </button>
+                </div>
               </div>
               
               <div className="relative bg-gray-900 w-full" style={{ height: '360px' }}>
@@ -317,6 +474,14 @@ const RemoteControl = () => {
                       )}
                     </div>
                   )
+                ) : debugMode ? (
+                  <div className="flex items-center justify-center h-full text-gray-300">
+                    <div className="text-center">
+                      <FontAwesomeIcon icon={faBug} className="text-4xl mb-2 text-yellow-500" />
+                      <p>Debug Mode - No Camera Feed</p>
+                      <p className="text-sm mt-2 text-gray-400">Joystick control is enabled for testing</p>
+                    </div>
+                  </div>
                 ) : (
                   <div className="flex items-center justify-center h-full text-gray-300">
                     <div className="text-center">
@@ -342,12 +507,19 @@ const RemoteControl = () => {
                     </div>
                   </div>
                 )}
+                
+                {/* Add detection count overlay when connected */}
+                {isConnected && imageSrc && detections.length > 0 && (
+                  <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+                    {detections.length} object{detections.length !== 1 ? 's' : ''} detected
+                  </div>
+                )}
               </div>
             </motion.div>
             
             {/* Control Interface */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Joystick Control */}
+              {/* DirectionalPad Control (replacing Joystick) */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -355,10 +527,10 @@ const RemoteControl = () => {
                 className="bg-white rounded-lg shadow-md p-4"
               >
                 <h2 className="text-xl font-semibold text-gray-800 mb-4">Manual Control</h2>
-                <JoystickControl 
-                  disabled={!isConnected || mode !== 'manual'}
-                  onMove={handleJoystickMove}
-                  onRelease={handleJoystickRelease}
+                <DirectionalPad 
+                  disabled={!isConnected && !debugMode || mode !== 'manual'}
+                  onMove={handleDirectionalMove}
+                  onStop={handleDirectionalStop}
                 />
               </motion.div>
               
@@ -372,7 +544,7 @@ const RemoteControl = () => {
                 <h2 className="text-xl font-semibold text-gray-800 mb-4">Operation Mode</h2>
                 
                 <ModeSelector 
-                  disabled={!isConnected}
+                  disabled={!isConnected && !debugMode}
                   currentMode={mode}
                   onChange={handleModeChange}
                 />
@@ -380,7 +552,7 @@ const RemoteControl = () => {
                 <div className="mt-6">
                   <h3 className="font-medium text-gray-700 mb-2">Movement Speed</h3>
                   <SpeedControl 
-                    disabled={!isConnected}
+                    disabled={!isConnected && !debugMode}
                     value={speed}
                     onChange={handleSpeedChange}
                   />
@@ -391,18 +563,45 @@ const RemoteControl = () => {
           
           {/* Right Column - Status and Actions */}
           <div className="space-y-6">
-            {/* Sensor Readouts */}
+            {/* SLAM Map - Added here */}
+            <SlamMap isConnected={isConnected || debugMode} />
+            
+            {/* Sensor Readouts or Debug Log */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
               className="bg-white rounded-lg shadow-md p-4"
             >
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">Sensor Readings</h2>
-              <SensorReadouts 
-                data={sensorData}
-                isConnected={isConnected}
-              />
+              {debugMode ? (
+                <>
+                  <h2 className="text-xl font-semibold text-gray-800 mb-4">Debug Command Log</h2>
+                  <div className="overflow-y-auto max-h-48">
+                    {debugLog.length > 0 ? (
+                      <div className="space-y-2">
+                        {debugLog.map((entry, index) => (
+                          <div key={index} className="text-sm border-b border-gray-100 pb-1">
+                            <span className="text-xs text-gray-500">{entry.time}</span>
+                            <pre className="mt-1 bg-gray-50 p-1 rounded text-xs overflow-x-auto">
+                              {JSON.stringify(entry.command, null, 2)}
+                            </pre>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm">No commands yet. Use the joystick to see debug data.</p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-xl font-semibold text-gray-800 mb-4">Sensor Readings</h2>
+                  <SensorReadouts 
+                    data={sensorData}
+                    isConnected={isConnected}
+                  />
+                </>
+              )}
             </motion.div>
             
             {/* Quick Actions */}
@@ -414,9 +613,22 @@ const RemoteControl = () => {
             >
               <h2 className="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h2>
               <ActionButtons 
-                disabled={!isConnected}
-                onAction={triggerAction}
+                disabled={!isConnected && !debugMode}
+                onAction={debugMode ? 
+                  (action) => {
+                    const now = new Date();
+                    setDebugLog(prev => [
+                      {
+                        time: now.toLocaleTimeString(),
+                        command: { action }
+                      },
+                      ...prev.slice(0, 9)
+                    ]);
+                  } : 
+                  triggerAction
+                }
                 mode={mode}
+                debugMode={debugMode}
               />
             </motion.div>
             
@@ -435,6 +647,15 @@ const RemoteControl = () => {
                   </span>
                   <p>System initialized. Ready for connection.</p>
                 </div>
+                
+                {debugMode && (
+                  <div className="p-2 bg-yellow-100 text-yellow-800 rounded">
+                    <span className="text-xs text-gray-500">
+                      {new Date().toLocaleTimeString()}
+                    </span>
+                    <p>Debug mode activated. Commands will not be sent to robot.</p>
+                  </div>
+                )}
                 
                 {isConnected && (
                   <div className="p-2 bg-blue-100 text-blue-800 rounded">

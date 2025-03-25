@@ -138,7 +138,6 @@ class TelemetryManager:
             },
             "network": {
                 "status": "connected" if network_connected else "disconnected",
-                "latency": round(self._get_network_latency(), 2),
                 "type": self._detect_network_type()
             },
             "sensors": self._get_sensor_status()
@@ -320,7 +319,6 @@ class TelemetryManager:
         
         # Network data
         network_status = "connected"
-        latency = self._get_network_latency()
         
         # Occasionally simulate sensor issues
         self._simulate_sensor_issues()
@@ -339,20 +337,11 @@ class TelemetryManager:
             },
             "network": {
                 "status": network_status,
-                "latency": round(latency, 2),
                 "type": "wifi" if random.random() > 0.3 else "ethernet",
                 "signalStrength": round(random.uniform(60, 95), 2)
             },
             "sensors": self._simulated_sensors
         }
-    
-    def _get_network_latency(self) -> float:
-        """Get or simulate network latency"""
-        # Simulate latency with occasional spikes
-        if random.random() < 0.05:  # 5% chance of latency spike
-            return random.uniform(200, 500)
-        else:
-            return random.uniform(15, 120)
     
     def _simulate_sensor_issues(self):
         """Occasionally simulate sensor issues for more realistic dashboard testing"""

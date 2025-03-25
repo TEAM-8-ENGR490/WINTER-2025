@@ -7,7 +7,7 @@ import {
   faHome
 } from '@fortawesome/free-solid-svg-icons';
 
-const ActionButtons = ({ disabled, onAction, mode }) => {
+const ActionButtons = ({ disabled, onAction, mode, debugMode = false }) => {
   // List of quick actions (removed sound horn and toggle lights)
   const actions = [
     {
@@ -48,8 +48,9 @@ const ActionButtons = ({ disabled, onAction, mode }) => {
     <div className="grid grid-cols-2 gap-2">
       {actions.map(action => {
         // Determine if button should be disabled
+        // In debug mode, don't disable autoOnly buttons for testing purposes
         const buttonDisabled = disabled || 
-          (action.autoOnly && mode !== 'auto' && mode !== 'semi-auto') ||
+          (!debugMode && action.autoOnly && mode !== 'auto' && mode !== 'semi-auto') ||
           (!action.alwaysEnabled && disabled);
           
         return (
@@ -59,7 +60,7 @@ const ActionButtons = ({ disabled, onAction, mode }) => {
             disabled={buttonDisabled}
             className={`p-2 rounded-lg text-white ${action.color} flex flex-col items-center justify-center transition-colors ${
               buttonDisabled ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
+            } ${debugMode ? 'border-2 border-yellow-400' : ''}`}
           >
             <FontAwesomeIcon icon={action.icon} className="text-lg mb-1" />
             <span className="text-xs font-medium">{action.name}</span>
